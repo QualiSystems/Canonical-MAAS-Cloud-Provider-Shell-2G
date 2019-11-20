@@ -35,33 +35,35 @@ node_types:
           hide_address:
             type: string
             default: false
+          User:
+            type: string
+          Password:
+            type: cloudshell.datatypes.Password
+          Scheme:
+            default: HTTPS
+            type: string
+          Port:
+            default: 5240
+            type: integer
 
-#          ## Attributes available from the cloud provider standard
-#          Region:
-#            type: string
-#            default: ''
-#          Networks in use:
-#            type: string
-#            default: ''
-#          VLAN Type:
-#            type: string
-#            default: 'VLAN'
-#          Networking type:
-#            type: string
-#            default: 'L2'
-#
-#          ## Adding custom attributes to the cloud provider discovery form
-#          my_custom_attribute:
-#            type: string
-#            default:
-
-#    ## Custom attributes definition
-#    properties:
-#      my_custom_attribute:
-#        type: string
-#        default:
-#        description: attribute description
-
+    properties:
+      User:
+        type: string
+        default:
+        description: MAAS API Username
+      Password:
+        type: cloudshell.datatypes.Password
+        default:
+        description: MAAS API Password
+      Scheme:
+        type: string
+        default: HTTPS
+        constraints:
+          - valid_values: [HTTP, HTTPS]
+        description: MAAS API Scheme
+      Port:
+        type: integer
+        description: MAAS API Port
     artifacts:
       icon:
         file: shell-icon.png
