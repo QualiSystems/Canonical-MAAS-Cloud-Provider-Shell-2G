@@ -1,14 +1,59 @@
-from cloudshell.cp.core import DriverRequestParser
+from cloudshell.cp.core.drive_request_parser import DriverRequestParser
 from cloudshell.shell.core.resource_driver_interface import ResourceDriverInterface
 from cloudshell.cp.core.models import DriverResponse
+from cloudshell.cp.core.utils import single
+
 from cloudshell.shell.core.driver_context import InitCommandContext, AutoLoadCommandContext, ResourceCommandContext, \
     AutoLoadAttribute, AutoLoadDetails, CancellationContext, ResourceRemoteCommandContext
+from cloudshell.shell.core.driver_utils import GlobalLock
+from cloudshell.shell.core.session.cloudshell_session import CloudShellSessionContext
 
+from cloudshell.cp.core.models import DriverResponse, DeployApp, CleanupNetwork, DeployAppResult
+
+from cloudshell.cp.core.models import VmDetailsData, VmDetailsProperty
 
 from cloudshell.shell.core.session.logging_session import LoggingSessionContext
 
+from package.resource_config import MaasResourceConfig
+
+import json
+
+
+import asyncio
+from maas.client import login
+
+# maas client built with asyncio
+class AnyThreadEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
+    """Event loop policy that allows loop creation on any thread"""
+    def get_event_loop(self):
+        try:
+            return super().get_event_loop()
+        except (RuntimeError, AssertionError):
+            loop = self.new_event_loop()
+            self.set_event_loop(loop)
+            return loop
+
+
+asyncio.set_event_loop_policy(AnyThreadEventLoopPolicy())
+
+
+def get_machine(cpus, memory, disks, storage=None):
+    from maas.client.enum import NodeStatus
+
+    # 1. choose machine based on some params ???
+    for machine in client.machines.list():
+        if all([machine.status == NodeStatus.READY,
+                cpus <= machine.cpus,
+                memory <= machine.memory / 1024,
+                disks <= len(machine.block_devices)]):  # todo: sort possible machines for cpus/memory?
+
+            return machine
+
+    raise Exception("No free machine for the given params:")
+
 
 class MaasDriver (ResourceDriverInterface):
+    SHELL_NAME = "Maas"
 
     def __init__(self):
         """
@@ -28,6 +73,7 @@ class MaasDriver (ResourceDriverInterface):
         """
         pass
 
+    @GlobalLock.lock
     def get_inventory(self, context):
         """
         Called when the cloud provider resource is created
@@ -43,6 +89,25 @@ class MaasDriver (ResourceDriverInterface):
         :rtype: AutoLoadDetails
         """
         with LoggingSessionContext(context) as logger:
+            api = CloudShellSessionContext(context).get_api()
+
+            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
+                                                              context=context,
+                                                              api=api)
+
+            from maas.client import login
+
+            client = login(
+                f"{resource_config.api_scheme}://{resource_config.address}:{resource_config.api_port}/MAAS/",
+                username=resource_config.api_user,
+                password="admin",
+                insecure=True,
+            )
+
+            # import ipdb;ipdb.set_trace()
+
+
+
             return AutoLoadDetails([], [])
 
     # </editor-fold>
@@ -78,7 +143,36 @@ class MaasDriver (ResourceDriverInterface):
         deploy_result = _my_deploy_method(context, actions, cancellation_context)
         return DriverResponse(deploy_result).to_driver_response_json()
         '''
-        pass
+        with LoggingSessionContext(context) as logger:
+            logger.info("Starting Deploy command...")
+
+            client = login(
+                "http://192.168.26.24:5240/MAAS/",
+                username="admin",
+                password="admin",
+                insecure=True,
+            )
+
+            actions = self.request_parser.convert_driver_request_to_actions(request)
+
+            # extract DeployApp action
+            deploy_action = single(actions, lambda x: isinstance(x, DeployApp))
+            attrs = deploy_action.actionParams.deployment.attributes
+
+            machine = get_machine(cpus=int(attrs["Maas.Machine.CPU Cores"]),
+                                  memory=float(attrs["Maas.Machine.RAM GiB"]),
+                                  disks=int(attrs["Maas.Machine.Disks"]),
+                                  storage=float(attrs["Maas.Machine.Storage GB"]))
+
+            operating_system = attrs["Maas.Machine.Operation System"]
+
+            deploy_result = DeployAppResult(deploy_action.actionId,
+                                            vmUuid="testuuid",  # machine.system_id
+                                            vmName="someVM",  # operationg system + sysstem_id ???
+                                            vmDetailsData=None,
+                                            deployedAppAdditionalData={})
+
+            return DriverResponse([deploy_result]).to_driver_response_json()
 
     def PowerOn(self, context, ports):
         """
@@ -125,7 +219,38 @@ class MaasDriver (ResourceDriverInterface):
         :param CancellationContext cancellation_context:
         :return:
         """
-        pass
+
+        def get_vm_details(name):
+            data = [VmDetailsProperty(key='Image', value="some image"),
+                    VmDetailsProperty(key='Replicas', value="some replicas"),
+                    VmDetailsProperty(key='Internal IP', value="127.0.0.1"), ]
+
+            vm_details_data = VmDetailsData(vmInstanceData=data,
+                                            vmNetworkData=None,
+                                            appName=name)
+
+            return vm_details_data
+
+        with LoggingSessionContext(context) as logger:
+            logger.info('GetVmDetails_context:')
+            logger.info(context)
+            logger.info('GetVmDetails_requests')
+            logger.info(requests)
+
+            results = []
+            requests_loaded = json.loads(requests)
+
+            for request in requests_loaded["items"]:
+                vm_name = request["deployedAppJson"]["name"]
+                logger.info(f"VM name from requrests {vm_name}")
+
+                result = get_vm_details(vm_name)
+                results.append(result)
+
+            result_json = json.dumps(results, default=lambda o: o.__dict__, sort_keys=True, separators=(',', ':'))
+            logger.info(f"GetVmDetails_result: {result_json}")
+
+            return result_json
 
     # </editor-fold>
 
@@ -193,65 +318,60 @@ class MaasDriver (ResourceDriverInterface):
 
     # <editor-fold desc="Mandatory Commands For L3 Connectivity Type">
 
-    def PrepareSandboxInfra(self, context, request, cancellation_context):
-        """
-        Called in the beginning of the orchestration flow (preparation stage), even before Deploy is called.
-
-        Prepares all of the required infrastructure needed for a sandbox operating with L3 connectivity.
-        For example, creating networking infrastructure like VPC, subnets or routing tables in AWS, storage entities such as S3 buckets, or
-        keyPair objects for authentication.
-        In general, any other entities needed on the sandbox level should be created here.
-
-        Note:
-        PrepareSandboxInfra can be called multiple times in a sandbox.
-        Setup can be called multiple times in the sandbox, and every time setup is called, the PrepareSandboxInfra method will be called again.
-        Implementation should support this use case and take under consideration that the cloud resource might already exist.
-        It's recommended to follow the "get or create" pattern when implementing this method.
-
-        When an error is raised or method returns action result with success false
-        Cloudshell will fail sandbox creation, so bear that in mind when doing so.
-
-        :param ResourceCommandContext context:
-        :param str request:
-        :param CancellationContext cancellation_context:
-        :return:
-        :rtype: str
-        """
-        '''
-        # parse the json strings into action objects
-        actions = self.request_parser.convert_driver_request_to_actions(request)
-        
-        action_results = _my_prepare_connectivity(context, actions, cancellation_context)
-        
-        return DriverResponse(action_results).to_driver_response_json()    
-        '''
-        pass
-
-    def CleanupSandboxInfra(self, context, request):
-        """
-        Called at the end of reservation teardown
-
-        Cleans all entities (beside VMs) created for sandbox, usually entities created in the
-        PrepareSandboxInfra command.
-
-        Basically all created entities for the sandbox will be deleted by calling the methods: DeleteInstance, CleanupSandboxInfra
-
-        If a failure occurs, return a "success false" action result.
-
-        :param ResourceCommandContext context:
-        :param str request:
-        :return:
-        :rtype: str
-        """
-        '''
-        # parse the json strings into action objects
-        actions = self.request_parser.convert_driver_request_to_actions(request)
-        
-        action_results = _my_cleanup_connectivity(context, actions)
-
-        return DriverResponse(action_results).to_driver_response_json()    
-        '''
-        pass
+    # def PrepareSandboxInfra(self, context, request, cancellation_context):
+    #     """
+    #     Called in the beginning of the orchestration flow (preparation stage), even before Deploy is called.
+    #
+    #     Prepares all of the required infrastructure needed for a sandbox operating with L3 connectivity.
+    #     For example, creating networking infrastructure like VPC, subnets or routing tables in AWS, storage entities such as S3 buckets, or
+    #     keyPair objects for authentication.
+    #     In general, any other entities needed on the sandbox level should be created here.
+    #
+    #     Note:
+    #     PrepareSandboxInfra can be called multiple times in a sandbox.
+    #     Setup can be called multiple times in the sandbox, and every time setup is called, the PrepareSandboxInfra method will be called again.
+    #     Implementation should support this use case and take under consideration that the cloud resource might already exist.
+    #     It's recommended to follow the "get or create" pattern when implementing this method.
+    #
+    #     When an error is raised or method returns action result with success false
+    #     Cloudshell will fail sandbox creation, so bear that in mind when doing so.
+    #
+    #     :param ResourceCommandContext context:
+    #     :param str request:
+    #     :param CancellationContext cancellation_context:
+    #     :return:
+    #     :rtype: str
+    #     """
+    #     # parse the json strings into action objects
+    #     actions = self.request_parser.convert_driver_request_to_actions(request)
+    #
+    #     action_results = _my_prepare_connectivity(context, actions, cancellation_context)
+    #
+    #     return DriverResponse(action_results).to_driver_response_json()
+    #
+    # def CleanupSandboxInfra(self, context, request):
+    #     """
+    #     Called at the end of reservation teardown
+    #
+    #     Cleans all entities (beside VMs) created for sandbox, usually entities created in the
+    #     PrepareSandboxInfra command.
+    #
+    #     Basically all created entities for the sandbox will be deleted by calling the methods: DeleteInstance, CleanupSandboxInfra
+    #
+    #     If a failure occurs, return a "success false" action result.
+    #
+    #     :param ResourceCommandContext context:
+    #     :param str request:
+    #     :return:
+    #     :rtype: str
+    #     """
+    #     # parse the json strings into action objects
+    #     actions = self.request_parser.convert_driver_request_to_actions(request)
+    #
+    #     action_results = _my_cleanup_connectivity(context, actions)
+    #
+    #     return DriverResponse(action_results).to_driver_response_json()
+    #     pass
 
     # </editor-fold>
 
@@ -285,3 +405,38 @@ class MaasDriver (ResourceDriverInterface):
         This is a good place to close any open sessions, finish writing to log files, etc.
         """
         pass
+
+
+if __name__ == "__main__":
+    import mock
+    from cloudshell.shell.core.driver_context import ResourceCommandContext, ResourceContextDetails, ReservationContextDetails
+
+    address = "192.168.26.24"
+    user = "admin"
+    password = "admin"
+    port = 5240
+
+    context = ResourceCommandContext(*(None,) * 4)
+    context.resource = ResourceContextDetails(*(None,) * 13)
+    context.resource.name = "MAAS"
+    context.resource.fullname = "Canonical MAAS"
+    context.resource.address = address
+    context.resource.family = "CS_CloudProvider"
+    context.reservation = ReservationContextDetails(*(None,) * 7)
+    context.reservation.reservation_id = '0cc17f8c-75ba-495f-aeb5-df5f0f9a0e97'
+    context.resource.attributes = {}
+
+    for attr, value in [("User", user),
+                        ("Password", password),
+                        ("Scheme", "http"),
+                        ("Port", port)]:
+
+        context.resource.attributes["{}.{}".format(MaasDriver.SHELL_NAME, attr)] = value
+        context.connectivity = mock.MagicMock()
+        context.connectivity.server_address = "192.168.85.16"
+
+    dr = MaasDriver()
+    dr.initialize(context)
+
+    for res in dr.get_inventory(context).resources:
+        print(res.__dict__)
