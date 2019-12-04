@@ -20,7 +20,11 @@ import json
 
 
 import asyncio
-from maas.client import login
+
+
+from package.flows.deploy import MaasDeployFlow
+
+
 
 # maas client built with asyncio
 class AnyThreadEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
@@ -35,21 +39,6 @@ class AnyThreadEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
 
 
 asyncio.set_event_loop_policy(AnyThreadEventLoopPolicy())
-
-
-def get_machine(cpus, memory, disks, storage=None):
-    from maas.client.enum import NodeStatus
-
-    # 1. choose machine based on some params ???
-    for machine in client.machines.list():
-        if all([machine.status == NodeStatus.READY,
-                cpus <= machine.cpus,
-                memory <= machine.memory / 1024,
-                disks <= len(machine.block_devices)]):  # todo: sort possible machines for cpus/memory?
-
-            return machine
-
-    raise Exception("No free machine for the given params:")
 
 
 class MaasDriver (ResourceDriverInterface):
@@ -89,30 +78,10 @@ class MaasDriver (ResourceDriverInterface):
         :rtype: AutoLoadDetails
         """
         with LoggingSessionContext(context) as logger:
-            api = CloudShellSessionContext(context).get_api()
-
-            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
-                                                              context=context,
-                                                              api=api)
-
-            from maas.client import login
-
-            client = login(
-                f"{resource_config.api_scheme}://{resource_config.address}:{resource_config.api_port}/MAAS/",
-                username=resource_config.api_user,
-                password="admin",
-                insecure=True,
-            )
-
-            # import ipdb;ipdb.set_trace()
-
-
+            logger.info("Starting Autoload command...")
+            logger.info("Autoload command ends...")
 
             return AutoLoadDetails([], [])
-
-    # </editor-fold>
-
-    # <editor-fold desc="App Deployment">
 
     def Deploy(self, context, request, cancellation_context=None):
         """
@@ -128,47 +97,29 @@ class MaasDriver (ResourceDriverInterface):
         :return:
         :rtype: str
         """
-
-        '''
-        # parse the json strings into action objects
-        actions = self.request_parser.convert_driver_request_to_actions(request)
-        
-        # extract DeployApp action
-        deploy_action = single(actions, lambda x: isinstance(x, DeployApp))
-        
-        # if we have multiple supported deployment options use the 'deploymentPath' property 
-        # to decide which deployment option to use. 
-        deployment_name = deploy_action.actionParams.deployment.deploymentPath
-                
-        deploy_result = _my_deploy_method(context, actions, cancellation_context)
-        return DriverResponse(deploy_result).to_driver_response_json()
-        '''
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Deploy command...")
+            api = CloudShellSessionContext(context).get_api()
+            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
+                                                              context=context,
+                                                              api=api)
 
-            client = login(
-                "http://192.168.26.24:5240/MAAS/",
-                username="admin",
-                password="admin",
-                insecure=True,
-            )
-
+            # todo: move all this stuff to the flow ???
             actions = self.request_parser.convert_driver_request_to_actions(request)
-
-            # extract DeployApp action
             deploy_action = single(actions, lambda x: isinstance(x, DeployApp))
             attrs = deploy_action.actionParams.deployment.attributes
-
-            machine = get_machine(cpus=int(attrs["Maas.Machine.CPU Cores"]),
-                                  memory=float(attrs["Maas.Machine.RAM GiB"]),
-                                  disks=int(attrs["Maas.Machine.Disks"]),
-                                  storage=float(attrs["Maas.Machine.Storage GB"]))
-
             operating_system = attrs["Maas.Machine.Operation System"]
 
+            deploy_flow = MaasDeployFlow(resource_config=resource_config)
+            vm_uuid = deploy_flow.deploy_machine(os_system=operating_system,
+                                                 cpus=int(attrs["Maas.Machine.CPU Cores"]),
+                                                 memory=float(attrs["Maas.Machine.RAM GiB"]),
+                                                 disks=int(attrs["Maas.Machine.Disks"]),
+                                                 storage=float(attrs["Maas.Machine.Storage GB"]))
+
             deploy_result = DeployAppResult(deploy_action.actionId,
-                                            vmUuid="testuuid",  # machine.system_id
-                                            vmName="someVM",  # operationg system + sysstem_id ???
+                                            vmUuid=vm_uuid,
+                                            vmName=operating_system,
                                             vmDetailsData=None,
                                             deployedAppAdditionalData={})
 
@@ -221,7 +172,7 @@ class MaasDriver (ResourceDriverInterface):
         """
 
         def get_vm_details(name):
-            data = [VmDetailsProperty(key='Image', value="some image"),
+            data = [VmDetailsProperty(key='CPUS', value="some image"),
                     VmDetailsProperty(key='Replicas', value="some replicas"),
                     VmDetailsProperty(key='Internal IP', value="127.0.0.1"), ]
 
@@ -438,5 +389,7 @@ if __name__ == "__main__":
     dr = MaasDriver()
     dr.initialize(context)
 
-    for res in dr.get_inventory(context).resources:
-        print(res.__dict__)
+    # for res in dr.get_inventory(context).resources:
+    #     print(res.__dict__)
+
+    dr.Deploy(context, mock.MagicMock())

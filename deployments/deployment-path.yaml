@@ -24,15 +24,18 @@ node_types:
         tags: [user_input]
       CPU Cores:
         type: integer
+        default: 4
         tags: [user_input]
       RAM GiB:
         type: integer
+        default: 16
         tags: [user_input]
       Disks:
         type: integer
         default: 1
         tags: [user_input]
       Storage GB:
+        default: 512
         type: integer
         tags: [user_input]
     artifacts:
