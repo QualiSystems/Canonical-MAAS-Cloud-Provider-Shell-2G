@@ -1,32 +1,27 @@
-from cloudshell.cp.core.drive_request_parser import DriverRequestParser
+import asyncio
 from cloudshell.shell.core.resource_driver_interface import ResourceDriverInterface
-from cloudshell.cp.core.models import DriverResponse
-from cloudshell.cp.core.utils import single
 
 from cloudshell.shell.core.driver_context import InitCommandContext, AutoLoadCommandContext, ResourceCommandContext, \
     AutoLoadAttribute, AutoLoadDetails, CancellationContext, ResourceRemoteCommandContext
 from cloudshell.shell.core.driver_utils import GlobalLock
 from cloudshell.shell.core.session.cloudshell_session import CloudShellSessionContext
 
-from cloudshell.cp.core.models import DriverResponse, DeployApp, CleanupNetwork, DeployAppResult
-
-from cloudshell.cp.core.models import VmDetailsData, VmDetailsProperty
 
 from cloudshell.shell.core.session.logging_session import LoggingSessionContext
 
-from package.resource_config import MaasResourceConfig
-
-import json
-
-
-import asyncio
-
-
-from package.flows.deploy import MaasDeployFlow
+from canonical.maas.resource_config import MaasResourceConfig
 
 
 
-# maas client built with asyncio
+
+
+from canonical.maas.flows.deploy import MaasDeployFlow
+from canonical.maas.flows.vm_details import MaasGetVMDetailsFlow
+from canonical.maas.flows.power_mgmt import MaasPowerManagementFlow
+
+
+
+# maas client built with asyncio which by default doesn't allow creation of new event loop in threads
 class AnyThreadEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
     """Event loop policy that allows loop creation on any thread"""
     def get_event_loop(self):
@@ -48,7 +43,7 @@ class MaasDriver (ResourceDriverInterface):
         """
         ctor must be without arguments, it is created with reflection at run time
         """
-        self.request_parser = DriverRequestParser()
+        pass
 
     def initialize(self, context):
         """
@@ -104,26 +99,10 @@ class MaasDriver (ResourceDriverInterface):
                                                               context=context,
                                                               api=api)
 
-            # todo: move all this stuff to the flow ???
-            actions = self.request_parser.convert_driver_request_to_actions(request)
-            deploy_action = single(actions, lambda x: isinstance(x, DeployApp))
-            attrs = deploy_action.actionParams.deployment.attributes
-            operating_system = attrs["Maas.Machine.Operation System"]
+            deploy_flow = MaasDeployFlow(resource_config=resource_config,
+                                         logger=logger)
 
-            deploy_flow = MaasDeployFlow(resource_config=resource_config)
-            vm_uuid = deploy_flow.deploy_machine(os_system=operating_system,
-                                                 cpus=int(attrs["Maas.Machine.CPU Cores"]),
-                                                 memory=float(attrs["Maas.Machine.RAM GiB"]),
-                                                 disks=int(attrs["Maas.Machine.Disks"]),
-                                                 storage=float(attrs["Maas.Machine.Storage GB"]))
-
-            deploy_result = DeployAppResult(deploy_action.actionId,
-                                            vmUuid=vm_uuid,
-                                            vmName=operating_system,
-                                            vmDetailsData=None,
-                                            deployedAppAdditionalData={})
-
-            return DriverResponse([deploy_result]).to_driver_response_json()
+            return deploy_flow.deploy(request=request)
 
     def PowerOn(self, context, ports):
         """
@@ -136,7 +115,17 @@ class MaasDriver (ResourceDriverInterface):
         :param ResourceRemoteCommandContext context:
         :param ports:
         """
-        pass
+        with LoggingSessionContext(context) as logger:
+            logger.info("Starting Power On command...")
+            api = CloudShellSessionContext(context).get_api()
+            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
+                                                              context=context,
+                                                              api=api)
+
+            power_flow = MaasPowerManagementFlow(resource_config=resource_config,
+                                                 logger=logger)
+
+            return power_flow.power_on(resource=context.remote_endpoints[0])
 
     def remote_refresh_ip(self, context, ports, cancellation_context):
         """
@@ -170,46 +159,19 @@ class MaasDriver (ResourceDriverInterface):
         :param CancellationContext cancellation_context:
         :return:
         """
-
-        def get_vm_details(name):
-            data = [VmDetailsProperty(key='CPUS', value="some image"),
-                    VmDetailsProperty(key='Replicas', value="some replicas"),
-                    VmDetailsProperty(key='Internal IP', value="127.0.0.1"), ]
-
-            vm_details_data = VmDetailsData(vmInstanceData=data,
-                                            vmNetworkData=None,
-                                            appName=name)
-
-            return vm_details_data
-
         with LoggingSessionContext(context) as logger:
-            logger.info('GetVmDetails_context:')
-            logger.info(context)
-            logger.info('GetVmDetails_requests')
-            logger.info(requests)
+            logger.info("Starting Deploy command...")
+            api = CloudShellSessionContext(context).get_api()
+            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
+                                                              context=context,
+                                                              api=api)
 
-            results = []
-            requests_loaded = json.loads(requests)
-
-            for request in requests_loaded["items"]:
-                vm_name = request["deployedAppJson"]["name"]
-                logger.info(f"VM name from requrests {vm_name}")
-
-                result = get_vm_details(vm_name)
-                results.append(result)
-
-            result_json = json.dumps(results, default=lambda o: o.__dict__, sort_keys=True, separators=(',', ':'))
-            logger.info(f"GetVmDetails_result: {result_json}")
-
-            return result_json
-
-    # </editor-fold>
+            vm_details_flow = MaasGetVMDetailsFlow(resource_config=resource_config, logger=logger)
+            return vm_details_flow.get_vms_details(requests=requests)
 
     def PowerCycle(self, context, ports, delay):
         """ please leave it as is """
         pass
-
-    # <editor-fold desc="Power off / Delete">
 
     def PowerOff(self, context, ports):
         """

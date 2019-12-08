@@ -4,7 +4,7 @@ from cloudshell.shell.standards.core.resource_config_entities import (
     ResourceAttrRO,
 )
 
-from package.standards import attribute_names
+from canonical.maas.standards import attribute_names
 
 
 class GenericApiConfig(GenericResourceConfig):
