@@ -15,36 +15,31 @@ class MaasGetVMDetailsFlow(BaseMaasFlow):
         :param str vm_name:
         :return:
         """
-        # todo: what data to set here ???
-        # data = [VmDetailsProperty(key='CPUS', value="4")]
-        data = []
+        machine = self._maas_client.machines.get(vm_uid)
         vm_network_data = []
 
-        machine = self._maas_client.machines.get(vm_uid)
+        data = [VmDetailsProperty(key="Architecture", value=machine.architecture),
+                VmDetailsProperty(key='HWE Kernel', value=machine.hwe_kernel),
+                VmDetailsProperty(key="CPU Cores", value=machine.cpus),
+                VmDetailsProperty(key="RAM GiB", value=machine.memory//1024),
+                VmDetailsProperty(key="Disks", value=len(machine.block_devices)),
+                VmDetailsProperty(key="Distro Series", value=machine.distro_series),
+                VmDetailsProperty(key="Operation System", value=machine.osystem)]
 
-        for idx, ip_address in enumerate(machine.ip_addresses, start=1):
-            # network_data = [
-            #     VmDetailsProperty(key='Name', value='test name'),
-            # ]
+        for iface in machine.interfaces:
+            network_data = [
+                VmDetailsProperty(key='MAC Address', value=iface.mac_address),
+            ]
 
-            interface = VmDetailsNetworkInterface(interfaceId=idx,
-                                                  networkId=hash(ip_address),
-                                                  isPredefined=True,
-                                                  networkData=[],
-                                                  privateIpAddress=ip_address)
-            vm_network_data.append(interface)
+            for link in iface.links:
+                iface_id = hash(f"{iface.id }_{link.id}")
+                interface = VmDetailsNetworkInterface(interfaceId=iface_id,
+                                                      networkId=iface_id,
+                                                      isPredefined=True,
+                                                      networkData=network_data,
+                                                      privateIpAddress=link.ip_address)
+                vm_network_data.append(interface)
 
-            # network_data = [
-            #     VmDetailsProperty(key='MAC Address', value=nic['mac_address']),
-            # ]
-            #
-            # current_interface = VmDetailsNetworkInterface(interfaceId=i,
-            #                                               networkId=nic['network_uuid'],
-            #                                               isPredefined=True,
-            #                                               networkData=network_data)
-            # i += 1
-            # vm_network_data.append(current_interface)
-            #
         vm_details_data = VmDetailsData(vmInstanceData=data,
                                         vmNetworkData=vm_network_data,
                                         appName=vm_name)

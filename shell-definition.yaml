@@ -45,7 +45,13 @@ node_types:
           Port:
             default: 5240
             type: integer
-
+          Default Gateway:
+            type: string
+          Default Subnet:
+            type: string
+          Managed Allocation:
+            type: boolean
+            default: true
     properties:
       User:
         type: string
@@ -64,6 +70,13 @@ node_types:
       Port:
         type: integer
         description: MAAS API Port
+      Default Gateway:
+        type: string
+      Default Subnet:
+        type: string
+      Managed Allocation:
+        type: boolean
+        description: If set to True MAAS will take full control of DHCP and IP address management on subnet.
     artifacts:
       icon:
         file: shell-icon.png

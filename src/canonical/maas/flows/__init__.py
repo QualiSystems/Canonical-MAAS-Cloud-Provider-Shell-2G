@@ -1,3 +1,6 @@
+import json
+
+from cloudshell.cp.core.drive_request_parser import DriverRequestParser
 from maas.client import login
 
 
@@ -26,3 +29,55 @@ class BaseMaasFlow:
             password=resource_config.api_password,
             insecure=True,
         )
+
+
+class MaasDeployedVMFlow(BaseMaasFlow):
+    def _get_vm_uid(self, resource):
+        """
+
+        :param resource:
+        :return:
+        """
+        deployed_app_dict = json.loads(resource.app_context.deployed_app_json)
+        return deployed_app_dict['vmdetails']['uid']
+
+    def _get_machine(self, resource):
+        """
+
+        :param resource:
+        :return:
+        """
+        vm_uid = self._get_vm_uid(resource)
+        return self._maas_client.machines.get(vm_uid)
+
+
+class MaasDefaultSubnetFlow(BaseMaasFlow):
+    FABRIC_NAME_TPL = "Quali_{}"
+    SUBNET_NAME_TPL = "Quali_{}"
+
+    def __init__(self, resource_config, logger):
+        """
+
+        :param resource_config:
+        :param logger:
+        """
+        super().__init__(resource_config, logger)
+        self._request_parser = DriverRequestParser()
+
+    def get_default_fabric_name(self, sandbox_id):
+        """
+
+        :param sandbox_id:
+        :return:
+        """
+        return "Quali_Fabric"
+        # return self.FABRIC_NAME_TPL.format(sandbox_id)
+
+    def get_default_subnet_name(self, sandbox_id):
+        """
+
+        :param sandbox_id:
+        :return:
+        """
+        return "Quali_Subnet"
+        # return self.SUBNET_NAME_TPL.format(sandbox_id)

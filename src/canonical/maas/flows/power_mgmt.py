@@ -1,27 +1,15 @@
-import json
-
-from canonical.maas.flows import BaseMaasFlow
+from canonical.maas.flows import MaasDeployedVMFlow
 
 
-class MaasPowerManagementFlow(BaseMaasFlow):
-    def _get_vm_uid(self, resource):
-        """
-
-        :param resource:
-        :return:
-        """
-        deployed_app_dict = json.loads(resource.app_context.deployed_app_json)
-        return deployed_app_dict['vmdetails']['uid']
-
+class MaasPowerManagementFlow(MaasDeployedVMFlow):
     def power_on(self, resource):
         """
 
         :param resource:
         :return:
         """
-        vm_uid = self._get_vm_uid(resource)
-        machine = self._maas_client.machines.get(vm_uid)
-        machine.power_on(wait=True)
+        machine = self._get_machine(resource)
+        # machine.power_on(wait=True)
 
     def power_off(self, resource):
         """
@@ -29,6 +17,5 @@ class MaasPowerManagementFlow(BaseMaasFlow):
         :param resource:
         :return:
         """
-        vm_uid = self._get_vm_uid(resource)
-        machine = self._maas_client.machines.get(vm_uid)
-        machine.power_off(wait=True)
+        machine = self._get_machine(resource)
+        # machine.power_off(wait=True)

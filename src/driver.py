@@ -1,24 +1,20 @@
 import asyncio
-from cloudshell.shell.core.resource_driver_interface import ResourceDriverInterface
 
-from cloudshell.shell.core.driver_context import InitCommandContext, AutoLoadCommandContext, ResourceCommandContext, \
-    AutoLoadAttribute, AutoLoadDetails, CancellationContext, ResourceRemoteCommandContext
+from cloudshell.shell.core.resource_driver_interface import ResourceDriverInterface
+from cloudshell.shell.core.driver_context import InitCommandContext, AutoLoadCommandContext, AutoLoadDetails, \
+    CancellationContext, ResourceRemoteCommandContext
 from cloudshell.shell.core.driver_utils import GlobalLock
 from cloudshell.shell.core.session.cloudshell_session import CloudShellSessionContext
-
-
 from cloudshell.shell.core.session.logging_session import LoggingSessionContext
 
 from canonical.maas.resource_config import MaasResourceConfig
-
-
-
-
-
+from canonical.maas.flows.autoload import MaasAutoloadFlow
+from canonical.maas.flows.delete import MaasDeleteFlow
 from canonical.maas.flows.deploy import MaasDeployFlow
 from canonical.maas.flows.vm_details import MaasGetVMDetailsFlow
 from canonical.maas.flows.power_mgmt import MaasPowerManagementFlow
-
+from canonical.maas.flows.prepare_sandbox_infra import MaasPrepareSandboxInfraFlow
+from canonical.maas.flows.cleanup_sandbox_infra import MaasCleanupSandboxInfraFlow
 
 
 # maas client built with asyncio which by default doesn't allow creation of new event loop in threads
@@ -74,9 +70,16 @@ class MaasDriver (ResourceDriverInterface):
         """
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Autoload command...")
-            logger.info("Autoload command ends...")
+            api = CloudShellSessionContext(context).get_api()
+            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
+                                                              context=context,
+                                                              api=api)
 
-            return AutoLoadDetails([], [])
+            import ipdb;ipdb.set_trace()
+            autoload_flow = MaasAutoloadFlow(resource_config=resource_config,
+                                             logger=logger)
+
+            return autoload_flow.discover()
 
     def Deploy(self, context, request, cancellation_context=None):
         """
@@ -102,7 +105,7 @@ class MaasDriver (ResourceDriverInterface):
             deploy_flow = MaasDeployFlow(resource_config=resource_config,
                                          logger=logger)
 
-            return deploy_flow.deploy(request=request)
+            return deploy_flow.deploy(request=request, sandbox_id=context.reservation.reservation_id)
 
     def PowerOn(self, context, ports):
         """
@@ -197,17 +200,15 @@ class MaasDriver (ResourceDriverInterface):
         :param ResourceRemoteCommandContext context:
         :param ports:
         """
-        pass
+        with LoggingSessionContext(context) as logger:
+            logger.info("Starting Delete instance command...")
+            api = CloudShellSessionContext(context).get_api()
+            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
+                                                              context=context,
+                                                              api=api)
 
-    # </editor-fold>
-
-    # </editor-fold>
-
-
-    ### NOTE: According to the Connectivity Type of your shell, remove the commands that are not
-    ###       relevant from this file and from drivermetadata.xml.
-
-    # <editor-fold desc="Mandatory Commands For L2 Connectivity Type">
+            delete_flow = MaasDeleteFlow(resource_config=resource_config, logger=logger)
+            return delete_flow.delete(resource=context.remote_endpoints[0])
 
     def ApplyConnectivityChanges(self, context, request):
         """
@@ -227,68 +228,65 @@ class MaasDriver (ResourceDriverInterface):
         """
         pass
 
-    # </editor-fold> 
+    def PrepareSandboxInfra(self, context, request, cancellation_context):
+        """
+        Called in the beginning of the orchestration flow (preparation stage), even before Deploy is called.
 
-    # <editor-fold desc="Mandatory Commands For L3 Connectivity Type">
+        Prepares all of the required infrastructure needed for a sandbox operating with L3 connectivity.
+        For example, creating networking infrastructure like VPC, subnets or routing tables in AWS, storage entities such as S3 buckets, or
+        keyPair objects for authentication.
+        In general, any other entities needed on the sandbox level should be created here.
 
-    # def PrepareSandboxInfra(self, context, request, cancellation_context):
-    #     """
-    #     Called in the beginning of the orchestration flow (preparation stage), even before Deploy is called.
-    #
-    #     Prepares all of the required infrastructure needed for a sandbox operating with L3 connectivity.
-    #     For example, creating networking infrastructure like VPC, subnets or routing tables in AWS, storage entities such as S3 buckets, or
-    #     keyPair objects for authentication.
-    #     In general, any other entities needed on the sandbox level should be created here.
-    #
-    #     Note:
-    #     PrepareSandboxInfra can be called multiple times in a sandbox.
-    #     Setup can be called multiple times in the sandbox, and every time setup is called, the PrepareSandboxInfra method will be called again.
-    #     Implementation should support this use case and take under consideration that the cloud resource might already exist.
-    #     It's recommended to follow the "get or create" pattern when implementing this method.
-    #
-    #     When an error is raised or method returns action result with success false
-    #     Cloudshell will fail sandbox creation, so bear that in mind when doing so.
-    #
-    #     :param ResourceCommandContext context:
-    #     :param str request:
-    #     :param CancellationContext cancellation_context:
-    #     :return:
-    #     :rtype: str
-    #     """
-    #     # parse the json strings into action objects
-    #     actions = self.request_parser.convert_driver_request_to_actions(request)
-    #
-    #     action_results = _my_prepare_connectivity(context, actions, cancellation_context)
-    #
-    #     return DriverResponse(action_results).to_driver_response_json()
-    #
-    # def CleanupSandboxInfra(self, context, request):
-    #     """
-    #     Called at the end of reservation teardown
-    #
-    #     Cleans all entities (beside VMs) created for sandbox, usually entities created in the
-    #     PrepareSandboxInfra command.
-    #
-    #     Basically all created entities for the sandbox will be deleted by calling the methods: DeleteInstance, CleanupSandboxInfra
-    #
-    #     If a failure occurs, return a "success false" action result.
-    #
-    #     :param ResourceCommandContext context:
-    #     :param str request:
-    #     :return:
-    #     :rtype: str
-    #     """
-    #     # parse the json strings into action objects
-    #     actions = self.request_parser.convert_driver_request_to_actions(request)
-    #
-    #     action_results = _my_cleanup_connectivity(context, actions)
-    #
-    #     return DriverResponse(action_results).to_driver_response_json()
-    #     pass
+        Note:
+        PrepareSandboxInfra can be called multiple times in a sandbox.
+        Setup can be called multiple times in the sandbox, and every time setup is called, the PrepareSandboxInfra method will be called again.
+        Implementation should support this use case and take under consideration that the cloud resource might already exist.
+        It's recommended to follow the "get or create" pattern when implementing this method.
 
-    # </editor-fold>
+        When an error is raised or method returns action result with success false
+        Cloudshell will fail sandbox creation, so bear that in mind when doing so.
 
-    # <editor-fold desc="Optional Commands For L3 Connectivity Type">
+        :param ResourceCommandContext context:
+        :param str request:
+        :param CancellationContext cancellation_context:
+        :return:
+        :rtype: str
+        """
+        with LoggingSessionContext(context) as logger:
+            logger.info("Starting Prepare Sandbox Infra command...")
+            api = CloudShellSessionContext(context).get_api()
+            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
+                                                              context=context,
+                                                              api=api)
+
+            prepare_sandbox_flow = MaasPrepareSandboxInfraFlow(resource_config=resource_config, logger=logger)
+            return prepare_sandbox_flow.prepare(request=request, sandbox_id=context.reservation.reservation_id)
+
+    def CleanupSandboxInfra(self, context, request):
+        """
+        Called at the end of reservation teardown
+
+        Cleans all entities (beside VMs) created for sandbox, usually entities created in the
+        PrepareSandboxInfra command.
+
+        Basically all created entities for the sandbox will be deleted by calling the methods: DeleteInstance, CleanupSandboxInfra
+
+        If a failure occurs, return a "success false" action result.
+
+        :param ResourceCommandContext context:
+        :param str request:
+        :return:
+        :rtype: str
+        """
+        with LoggingSessionContext(context) as logger:
+            logger.info("Starting Cleanup Sandbox Infra command...")
+            api = CloudShellSessionContext(context).get_api()
+            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
+                                                              context=context,
+                                                              api=api)
+
+            cleanup_sandbox_flow = MaasCleanupSandboxInfraFlow(resource_config=resource_config, logger=logger)
+            return cleanup_sandbox_flow.cleanup(request=request, sandbox_id=context.reservation.reservation_id)
 
     def SetAppSecurityGroups(self, context, request):
         """
@@ -309,8 +307,6 @@ class MaasDriver (ResourceDriverInterface):
         :rtype: str
         """
         pass
-
-    # </editor-fold>
 
     def cleanup(self):
         """
@@ -342,16 +338,26 @@ if __name__ == "__main__":
     for attr, value in [("User", user),
                         ("Password", password),
                         ("Scheme", "http"),
+                        # ("Managed Allocation", "True"),
                         ("Port", port)]:
 
         context.resource.attributes["{}.{}".format(MaasDriver.SHELL_NAME, attr)] = value
         context.connectivity = mock.MagicMock()
-        context.connectivity.server_address = "192.168.85.16"
+        context.connectivity.server_address = "192.168.85.27"
 
     dr = MaasDriver()
     dr.initialize(context)
 
-    # for res in dr.get_inventory(context).resources:
-    #     print(res.__dict__)
+    from maas.client import login
+
+    client = login(
+        f"http://192.168.26.24:5240/MAAS/",
+        username="admin",
+        password="admin",
+        insecure=True,
+    )
+
+    for res in dr.get_inventory(context).resources:
+        print(res.__dict__)
 
     dr.Deploy(context, mock.MagicMock())
