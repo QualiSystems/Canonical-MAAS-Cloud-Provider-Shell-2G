@@ -4,10 +4,10 @@ from cloudshell.cp.core.models import CleanupNetwork, CleanupNetworkResult, Driv
 from cloudshell.cp.core.utils import single
 from maas.client.bones import CallError
 
-from canonical.maas.flows import MaasDefaultSubnetFlow
+from canonical.maas.flows import MaasDefaultSubnetFlow, MaasRequestBasedFlow
 
 
-class MaasCleanupSandboxInfraFlow(MaasDefaultSubnetFlow):
+class MaasCleanupSandboxInfraFlow(MaasRequestBasedFlow, MaasDefaultSubnetFlow):
     def _delete_fabric(self, name):
         """
 
@@ -38,15 +38,14 @@ class MaasCleanupSandboxInfraFlow(MaasDefaultSubnetFlow):
 
         subnet.delete()
 
-    def cleanup(self, request, sandbox_id):
+    def cleanup(self, request):
         """
 
         :param request:
-        :param sandbox_id:
         :return:
         """
-        self._delete_subnet(name=self.get_default_subnet_name(sandbox_id))
-        self._delete_fabric(name=self.get_default_fabric_name(sandbox_id))
+        # self._delete_subnet(name=self.DEFAULT_SUBNET_NAME)
+        # self._delete_fabric(name=self.DEFAULT_FABRIC_NAME)
 
         actions = self._request_parser.convert_driver_request_to_actions(request)
         cleanup_action = single(actions, lambda x: isinstance(x, CleanupNetwork))

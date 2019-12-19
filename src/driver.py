@@ -11,10 +11,11 @@ from canonical.maas.resource_config import MaasResourceConfig
 from canonical.maas.flows.autoload import MaasAutoloadFlow
 from canonical.maas.flows.delete import MaasDeleteFlow
 from canonical.maas.flows.deploy import MaasDeployFlow
-from canonical.maas.flows.vm_details import MaasGetVMDetailsFlow
+from canonical.maas.flows.cleanup_sandbox_infra import MaasCleanupSandboxInfraFlow
 from canonical.maas.flows.power_mgmt import MaasPowerManagementFlow
 from canonical.maas.flows.prepare_sandbox_infra import MaasPrepareSandboxInfraFlow
-from canonical.maas.flows.cleanup_sandbox_infra import MaasCleanupSandboxInfraFlow
+from canonical.maas.flows.refresh_ip import MaasRemoteRefreshIPFlow
+from canonical.maas.flows.vm_details import MaasGetVMDetailsFlow
 
 
 # maas client built with asyncio which by default doesn't allow creation of new event loop in threads
@@ -75,7 +76,6 @@ class MaasDriver (ResourceDriverInterface):
                                                               context=context,
                                                               api=api)
 
-            import ipdb;ipdb.set_trace()
             autoload_flow = MaasAutoloadFlow(resource_config=resource_config,
                                              logger=logger)
 
@@ -105,7 +105,7 @@ class MaasDriver (ResourceDriverInterface):
             deploy_flow = MaasDeployFlow(resource_config=resource_config,
                                          logger=logger)
 
-            return deploy_flow.deploy(request=request, sandbox_id=context.reservation.reservation_id)
+            return deploy_flow.deploy(request=request)
 
     def PowerOn(self, context, ports):
         """
@@ -145,7 +145,18 @@ class MaasDriver (ResourceDriverInterface):
         :param CancellationContext cancellation_context:
         :return:
         """
-        pass
+        with LoggingSessionContext(context) as logger:
+            logger.info("Starting Remote Refresh IP command...")
+            api = CloudShellSessionContext(context).get_api()
+            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
+                                                              context=context,
+                                                              api=api)
+
+            refresh_ip_flow = MaasRemoteRefreshIPFlow(resource_config=resource_config,
+                                                      cs_api=api,
+                                                      logger=logger)
+
+            return refresh_ip_flow.refresh_ip(resource=context.remote_endpoints[0])
 
     def GetVmDetails(self, context, requests, cancellation_context):
         """
@@ -260,7 +271,7 @@ class MaasDriver (ResourceDriverInterface):
                                                               api=api)
 
             prepare_sandbox_flow = MaasPrepareSandboxInfraFlow(resource_config=resource_config, logger=logger)
-            return prepare_sandbox_flow.prepare(request=request, sandbox_id=context.reservation.reservation_id)
+            return prepare_sandbox_flow.prepare(request=request)
 
     def CleanupSandboxInfra(self, context, request):
         """
@@ -286,7 +297,7 @@ class MaasDriver (ResourceDriverInterface):
                                                               api=api)
 
             cleanup_sandbox_flow = MaasCleanupSandboxInfraFlow(resource_config=resource_config, logger=logger)
-            return cleanup_sandbox_flow.cleanup(request=request, sandbox_id=context.reservation.reservation_id)
+            return cleanup_sandbox_flow.cleanup(request=request)
 
     def SetAppSecurityGroups(self, context, request):
         """

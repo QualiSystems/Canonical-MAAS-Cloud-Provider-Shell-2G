@@ -2,10 +2,12 @@ from cloudshell.cp.core.models import DriverResponse, DeployApp, CleanupNetwork,
 from cloudshell.cp.core.utils import single
 from maas.client.enum import NodeStatus, LinkMode
 
-from canonical.maas.flows import MaasDefaultSubnetFlow
+from canonical.maas.flows import MaasDefaultSubnetFlow, MaasRequestBasedFlow
 
 
-class MaasDeployFlow(MaasDefaultSubnetFlow):
+class MaasDeployFlow(MaasRequestBasedFlow, MaasDefaultSubnetFlow):
+    MACHINE_INTERFACE_TPL = "Quali_{machine_name}"
+
     def _get_free_machine(self, cpus, memory, disks, storage=None):
         """
 
@@ -34,39 +36,28 @@ class MaasDeployFlow(MaasDefaultSubnetFlow):
 
         return available_machines[0]
 
-    def _reconnect_machine_to_sandbox_subnet(self, machine, sandbox_id):
+    def _reconnect_machine_to_sandbox_subnet(self, machine):
         """
 
         :param machine:
-        :param sandbox_id:
         :return:
         """
         try:
             iface = machine.interfaces[0]
-        except KeyError:
+        except IndexError:
             raise Exception("Unable to connect machine to default subnet. No interface on machine")
 
-        mac_address = iface.mac_address
-        # delete old interface
-        iface.delete()
+        subnet = self._maas_client.subnets.get(self.DEFAULT_SUBNET_NAME)
+        iface.vlan = subnet.vlan
+        iface.save()
 
-        # get VLAN from the default subnet
-        subnet_name = self.get_default_subnet_name(sandbox_id)
-        subnet = self._maas_client.subnets.get(subnet_name)
-        vlan = subnet.vlan
-
-        # create new interface with saved mac_address
-        iface = machine.interfaces.create(name=f"Quali_{machine.hostname}",
-                                          mac_address=mac_address,
-                                          vlan=vlan)
         iface.links.create(subnet=subnet,
                            mode=LinkMode.AUTO)
 
-    def deploy(self, request, sandbox_id):
+    def deploy(self, request):
         """
 
         :param request:
-        :param sandbox_id:
         :return:
         """
         actions = self._request_parser.convert_driver_request_to_actions(request)
@@ -81,8 +72,7 @@ class MaasDeployFlow(MaasDefaultSubnetFlow):
         operating_system = attrs["Maas.Machine.Operation System"]
         # machine.deploy(distro_series=operating_system, wait=True)
 
-        self._reconnect_machine_to_sandbox_subnet(machine=machine,
-                                                  sandbox_id=sandbox_id)
+        self._reconnect_machine_to_sandbox_subnet(machine=machine)
 
         deploy_result = DeployAppResult(deploy_action.actionId,
                                         vmUuid=machine.system_id,

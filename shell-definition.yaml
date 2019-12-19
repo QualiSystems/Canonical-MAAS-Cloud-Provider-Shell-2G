@@ -49,9 +49,11 @@ node_types:
             type: string
           Default Subnet:
             type: string
-          Managed Allocation:
+          Managed allocation:
             type: boolean
             default: true
+          SSH Keypair Path:
+            type: string
     properties:
       User:
         type: string
@@ -77,6 +79,9 @@ node_types:
       Managed Allocation:
         type: boolean
         description: If set to True MAAS will take full control of DHCP and IP address management on subnet.
+      SSH Keypair Path:
+        type: string
+        description: The path to the directory where the MAAS SSH private and public keys will be stored.
     artifacts:
       icon:
         file: shell-icon.png

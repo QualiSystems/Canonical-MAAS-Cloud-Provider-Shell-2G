@@ -30,3 +30,8 @@ class MaasResourceConfig(GenericApiConfig):
         "Managed Allocation", ResourceAttrRO.NAMESPACE.SHELL_NAME, default="True"
     )
 
+    ssh_keypair_path = ResourceAttrRO(
+        "SSH Keypair Path", ResourceAttrRO.NAMESPACE.SHELL_NAME,
+    )
+
+

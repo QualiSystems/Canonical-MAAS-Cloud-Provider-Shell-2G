@@ -52,9 +52,11 @@ class MaasDeployedVMFlow(BaseMaasFlow):
 
 
 class MaasDefaultSubnetFlow(BaseMaasFlow):
-    FABRIC_NAME_TPL = "Quali_{}"
-    SUBNET_NAME_TPL = "Quali_{}"
+    DEFAULT_FABRIC_NAME = "Quali_Fabric"
+    DEFAULT_SUBNET_NAME = "Quali_Subnet"
 
+
+class MaasRequestBasedFlow(BaseMaasFlow):
     def __init__(self, resource_config, logger):
         """
 
@@ -63,21 +65,3 @@ class MaasDefaultSubnetFlow(BaseMaasFlow):
         """
         super().__init__(resource_config, logger)
         self._request_parser = DriverRequestParser()
-
-    def get_default_fabric_name(self, sandbox_id):
-        """
-
-        :param sandbox_id:
-        :return:
-        """
-        return "Quali_Fabric"
-        # return self.FABRIC_NAME_TPL.format(sandbox_id)
-
-    def get_default_subnet_name(self, sandbox_id):
-        """
-
-        :param sandbox_id:
-        :return:
-        """
-        return "Quali_Subnet"
-        # return self.SUBNET_NAME_TPL.format(sandbox_id)
