@@ -49,7 +49,7 @@ node_types:
             type: string
           Default Subnet:
             type: string
-          Managed allocation:
+          Managed Allocation:
             type: boolean
             default: true
           SSH Keypair Path:

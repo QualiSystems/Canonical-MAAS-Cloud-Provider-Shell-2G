@@ -14,7 +14,7 @@ imports:
 
 node_types:
 
-  vendor.resource.Machine:
+  vendor.resource.MAAS Machine:
     derived_from: cloudshell.nodes.CustomDeploymentOption
 
     properties:

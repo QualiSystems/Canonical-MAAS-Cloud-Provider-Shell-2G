@@ -52,7 +52,7 @@ class MaasDeployFlow(MaasRequestBasedFlow, MaasDefaultSubnetFlow):
         iface.save()
 
         iface.links.create(subnet=subnet,
-                           mode=LinkMode.AUTO)
+                           mode=LinkMode.DHCP)
 
     def deploy(self, request):
         """
@@ -64,13 +64,13 @@ class MaasDeployFlow(MaasRequestBasedFlow, MaasDefaultSubnetFlow):
         deploy_action = single(actions, lambda x: isinstance(x, DeployApp))
         attrs = deploy_action.actionParams.deployment.attributes
 
-        machine = self._get_free_machine(cpus=int(attrs["Maas.Machine.CPU Cores"]),
-                                         memory=float(attrs["Maas.Machine.RAM GiB"]),
-                                         disks=int(attrs["Maas.Machine.Disks"]),
-                                         storage=float(attrs["Maas.Machine.Storage GB"]))
+        machine = self._get_free_machine(cpus=int(attrs["Maas.MAAS Machine.CPU Cores"]),
+                                         memory=float(attrs["Maas.MAAS Machine.RAM GiB"]),
+                                         disks=int(attrs["Maas.MAAS Machine.Disks"]),
+                                         storage=float(attrs["Maas.MAAS Machine.Storage GB"]))
 
-        operating_system = attrs["Maas.Machine.Operation System"]
-        # machine.deploy(distro_series=operating_system, wait=True)
+        operating_system = attrs["Maas.MAAS Machine.Operation System"]
+        machine.deploy(distro_series=operating_system, wait=True)
 
         self._reconnect_machine_to_sandbox_subnet(machine=machine)
 
