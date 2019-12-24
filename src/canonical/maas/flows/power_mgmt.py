@@ -9,7 +9,7 @@ class MaasPowerManagementFlow(MaasDeployedVMFlow):
         :return:
         """
         machine = self._get_machine(resource)
-        # machine.power_on(wait=True)
+        machine.power_on(wait=True)
 
     def power_off(self, resource):
         """
@@ -18,4 +18,4 @@ class MaasPowerManagementFlow(MaasDeployedVMFlow):
         :return:
         """
         machine = self._get_machine(resource)
-        # machine.power_off(wait=True)
+        machine.power_off(wait=True)
