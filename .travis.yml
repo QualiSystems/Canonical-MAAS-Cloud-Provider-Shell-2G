@@ -1,0 +1,55 @@
+language: python
+python: 3.7
+
+jobs:
+  include:
+    - env: TOXENV=pre-commit
+      script: tox
+      install: pip install tox
+    - stage: Create GitHub release
+      before_install:
+        - sudo apt-get update
+        - sudo apt-get -y install jq
+      install:
+        - pip install yq
+        - pip install tox
+      before_deploy:
+        - export AUTHOR_EMAIL="$(git log -1 $TRAVIS_COMMIT --pretty="%cE")"
+        - export AUTHOR_NAME="$(git log -1 $TRAVIS_COMMIT --pretty="%aN")"
+        - git config --local user.name $AUTHOR_NAME
+        - git config --local user.email $AUTHOR_EMAIL
+        - git tag $VERSION
+      script:
+        - tox
+        - export VERSION="$(yq -r .metadata.template_version shell-definition.yaml)"
+        - mv dist/dependencies-win32.zip dist/Canonical.MAAS.Cloud.Provider.Shell.2G.offline.dependencies.win32.$VERSION.zip
+        - mv dist/dependencies-linux.zip dist/Canonical.MAAS.Cloud.Provider.Shell.2G.offline.dependencies.linux.$VERSION.zip
+      deploy:
+        provider: releases
+        skip_cleanup: true
+        draft: true
+        api_key:
+          secure: ""
+        file_glob: true
+        file: dist/*.zip
+        name: Canonical MAAS Cloud Provider Shell 2G $GIT_TAG
+        target_commitish: master
+        on:
+          branch: master
+    - stage: Check version
+      before_install:
+        - sudo apt-get update
+        - sudo apt-get -y install jq
+      install:
+        - pip install yq
+        - git clone https://github.com/$TRAVIS_REPO_SLUG.git $TRAVIS_REPO_SLUG
+        - cd $TRAVIS_REPO_SLUG
+        - git checkout -qf $TRAVIS_PULL_REQUEST_BRANCH
+      script: "! diff <(yq .metadata.template_version shell-definition.yaml) <(git show master:shell-definition.yaml > tmp.yaml && yq .metadata.template_version tmp.yaml)"
+
+stages:
+  - name: Check version
+    if: branch = master AND type = pull_request
+  - name: Test
+  - name: Create GitHub release
+    if: branch = master AND type != pull_request
