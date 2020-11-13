@@ -1,24 +1,24 @@
 import asyncio
 
-from cloudshell.shell.core.resource_driver_interface import ResourceDriverInterface
-from cloudshell.shell.core.driver_utils import GlobalLock
-from cloudshell.shell.core.session.cloudshell_session import CloudShellSessionContext
-from cloudshell.shell.core.session.logging_session import LoggingSessionContext
-
-from cloudshell.cp.mass.resource_config import MaasResourceConfig
 from cloudshell.cp.mass.flows.autoload import MaasAutoloadFlow
+from cloudshell.cp.mass.flows.cleanup_sandbox_infra import MaasCleanupSandboxInfraFlow
 from cloudshell.cp.mass.flows.delete import MaasDeleteFlow
 from cloudshell.cp.mass.flows.deploy import MaasDeployFlow
-from cloudshell.cp.mass.flows.cleanup_sandbox_infra import MaasCleanupSandboxInfraFlow
 from cloudshell.cp.mass.flows.power_mgmt import MaasPowerManagementFlow
 from cloudshell.cp.mass.flows.prepare_sandbox_infra import MaasPrepareSandboxInfraFlow
 from cloudshell.cp.mass.flows.refresh_ip import MaasRemoteRefreshIPFlow
 from cloudshell.cp.mass.flows.vm_details import MaasGetVMDetailsFlow
+from cloudshell.cp.mass.resource_config import MaasResourceConfig
+from cloudshell.shell.core.driver_utils import GlobalLock
+from cloudshell.shell.core.resource_driver_interface import ResourceDriverInterface
+from cloudshell.shell.core.session.cloudshell_session import CloudShellSessionContext
+from cloudshell.shell.core.session.logging_session import LoggingSessionContext
 
 
 # maas client built with asyncio which by default doesn't allow creation of new event loop in threads
 class AnyThreadEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
     """Event loop policy that allows loop creation on any thread"""
+
     def get_event_loop(self):
         try:
             return super().get_event_loop()
@@ -31,7 +31,7 @@ class AnyThreadEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
 asyncio.set_event_loop_policy(AnyThreadEventLoopPolicy())
 
 
-class MaasDriver (ResourceDriverInterface):
+class MaasDriver(ResourceDriverInterface):
     SHELL_NAME = "Canonical MAAS Cloud Provider 2G"
 
     def __init__(self):
@@ -70,12 +70,13 @@ class MaasDriver (ResourceDriverInterface):
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Autoload command...")
             api = CloudShellSessionContext(context).get_api()
-            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
-                                                              context=context,
-                                                              api=api)
+            resource_config = MaasResourceConfig.from_context(
+                shell_name=self.SHELL_NAME, context=context, api=api
+            )
 
-            autoload_flow = MaasAutoloadFlow(resource_config=resource_config,
-                                             logger=logger)
+            autoload_flow = MaasAutoloadFlow(
+                resource_config=resource_config, logger=logger
+            )
 
             return autoload_flow.discover()
 
@@ -96,12 +97,11 @@ class MaasDriver (ResourceDriverInterface):
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Deploy command...")
             api = CloudShellSessionContext(context).get_api()
-            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
-                                                              context=context,
-                                                              api=api)
+            resource_config = MaasResourceConfig.from_context(
+                shell_name=self.SHELL_NAME, context=context, api=api
+            )
 
-            deploy_flow = MaasDeployFlow(resource_config=resource_config,
-                                         logger=logger)
+            deploy_flow = MaasDeployFlow(resource_config=resource_config, logger=logger)
 
             return deploy_flow.deploy(request=request)
 
@@ -119,12 +119,13 @@ class MaasDriver (ResourceDriverInterface):
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Power On command...")
             api = CloudShellSessionContext(context).get_api()
-            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
-                                                              context=context,
-                                                              api=api)
+            resource_config = MaasResourceConfig.from_context(
+                shell_name=self.SHELL_NAME, context=context, api=api
+            )
 
-            power_flow = MaasPowerManagementFlow(resource_config=resource_config,
-                                                 logger=logger)
+            power_flow = MaasPowerManagementFlow(
+                resource_config=resource_config, logger=logger
+            )
 
             return power_flow.power_on(resource=context.remote_endpoints[0])
 
@@ -146,13 +147,13 @@ class MaasDriver (ResourceDriverInterface):
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Remote Refresh IP command...")
             api = CloudShellSessionContext(context).get_api()
-            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
-                                                              context=context,
-                                                              api=api)
+            resource_config = MaasResourceConfig.from_context(
+                shell_name=self.SHELL_NAME, context=context, api=api
+            )
 
-            refresh_ip_flow = MaasRemoteRefreshIPFlow(resource_config=resource_config,
-                                                      cs_api=api,
-                                                      logger=logger)
+            refresh_ip_flow = MaasRemoteRefreshIPFlow(
+                resource_config=resource_config, cs_api=api, logger=logger
+            )
 
             return refresh_ip_flow.refresh_ip(resource=context.remote_endpoints[0])
 
@@ -174,11 +175,13 @@ class MaasDriver (ResourceDriverInterface):
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Deploy command...")
             api = CloudShellSessionContext(context).get_api()
-            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
-                                                              context=context,
-                                                              api=api)
+            resource_config = MaasResourceConfig.from_context(
+                shell_name=self.SHELL_NAME, context=context, api=api
+            )
 
-            vm_details_flow = MaasGetVMDetailsFlow(resource_config=resource_config, logger=logger)
+            vm_details_flow = MaasGetVMDetailsFlow(
+                resource_config=resource_config, logger=logger
+            )
             return vm_details_flow.get_vms_details(requests=requests)
 
     def PowerCycle(self, context, ports, delay):
@@ -212,9 +215,9 @@ class MaasDriver (ResourceDriverInterface):
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Delete instance command...")
             api = CloudShellSessionContext(context).get_api()
-            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
-                                                              context=context,
-                                                              api=api)
+            resource_config = MaasResourceConfig.from_context(
+                shell_name=self.SHELL_NAME, context=context, api=api
+            )
 
             delete_flow = MaasDeleteFlow(resource_config=resource_config, logger=logger)
             return delete_flow.delete(resource=context.remote_endpoints[0])
@@ -264,11 +267,13 @@ class MaasDriver (ResourceDriverInterface):
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Prepare Sandbox Infra command...")
             api = CloudShellSessionContext(context).get_api()
-            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
-                                                              context=context,
-                                                              api=api)
+            resource_config = MaasResourceConfig.from_context(
+                shell_name=self.SHELL_NAME, context=context, api=api
+            )
 
-            prepare_sandbox_flow = MaasPrepareSandboxInfraFlow(resource_config=resource_config, logger=logger)
+            prepare_sandbox_flow = MaasPrepareSandboxInfraFlow(
+                resource_config=resource_config, logger=logger
+            )
             return prepare_sandbox_flow.prepare(request=request)
 
     def CleanupSandboxInfra(self, context, request):
@@ -290,11 +295,13 @@ class MaasDriver (ResourceDriverInterface):
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Cleanup Sandbox Infra command...")
             api = CloudShellSessionContext(context).get_api()
-            resource_config = MaasResourceConfig.from_context(shell_name=self.SHELL_NAME,
-                                                              context=context,
-                                                              api=api)
+            resource_config = MaasResourceConfig.from_context(
+                shell_name=self.SHELL_NAME, context=context, api=api
+            )
 
-            cleanup_sandbox_flow = MaasCleanupSandboxInfraFlow(resource_config=resource_config, logger=logger)
+            cleanup_sandbox_flow = MaasCleanupSandboxInfraFlow(
+                resource_config=resource_config, logger=logger
+            )
             return cleanup_sandbox_flow.cleanup(request=request)
 
     def SetAppSecurityGroups(self, context, request):
