@@ -58,3 +58,6 @@ docs/_build/
 # PyBuilder
 target/
 cloudshell_config.yml
+
+# Test file
+src/check_maas.py

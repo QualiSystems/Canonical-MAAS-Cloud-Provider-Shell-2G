@@ -1,21 +1,19 @@
 import asyncio
 
 from cloudshell.shell.core.resource_driver_interface import ResourceDriverInterface
-from cloudshell.shell.core.driver_context import InitCommandContext, AutoLoadCommandContext, AutoLoadDetails, \
-    CancellationContext, ResourceRemoteCommandContext
 from cloudshell.shell.core.driver_utils import GlobalLock
 from cloudshell.shell.core.session.cloudshell_session import CloudShellSessionContext
 from cloudshell.shell.core.session.logging_session import LoggingSessionContext
 
-from canonical.maas.resource_config import MaasResourceConfig
-from canonical.maas.flows.autoload import MaasAutoloadFlow
-from canonical.maas.flows.delete import MaasDeleteFlow
-from canonical.maas.flows.deploy import MaasDeployFlow
-from canonical.maas.flows.cleanup_sandbox_infra import MaasCleanupSandboxInfraFlow
-from canonical.maas.flows.power_mgmt import MaasPowerManagementFlow
-from canonical.maas.flows.prepare_sandbox_infra import MaasPrepareSandboxInfraFlow
-from canonical.maas.flows.refresh_ip import MaasRemoteRefreshIPFlow
-from canonical.maas.flows.vm_details import MaasGetVMDetailsFlow
+from cloudshell.cp.mass.resource_config import MaasResourceConfig
+from cloudshell.cp.mass.flows.autoload import MaasAutoloadFlow
+from cloudshell.cp.mass.flows.delete import MaasDeleteFlow
+from cloudshell.cp.mass.flows.deploy import MaasDeployFlow
+from cloudshell.cp.mass.flows.cleanup_sandbox_infra import MaasCleanupSandboxInfraFlow
+from cloudshell.cp.mass.flows.power_mgmt import MaasPowerManagementFlow
+from cloudshell.cp.mass.flows.prepare_sandbox_infra import MaasPrepareSandboxInfraFlow
+from cloudshell.cp.mass.flows.refresh_ip import MaasRemoteRefreshIPFlow
+from cloudshell.cp.mass.flows.vm_details import MaasGetVMDetailsFlow
 
 
 # maas client built with asyncio which by default doesn't allow creation of new event loop in threads
