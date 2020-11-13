@@ -34,7 +34,7 @@ asyncio.set_event_loop_policy(AnyThreadEventLoopPolicy())
 
 
 class MaasDriver (ResourceDriverInterface):
-    SHELL_NAME = "Maas"
+    SHELL_NAME = "Canonical MAAS Cloud Provider 2G"
 
     def __init__(self):
         """
@@ -325,50 +325,3 @@ class MaasDriver (ResourceDriverInterface):
         This is a good place to close any open sessions, finish writing to log files, etc.
         """
         pass
-
-
-if __name__ == "__main__":
-    import mock
-    from cloudshell.shell.core.driver_context import ResourceCommandContext, ResourceContextDetails, ReservationContextDetails
-
-    address = "192.168.26.24"
-    user = "admin"
-    password = "admin"
-    port = 5240
-
-    context = ResourceCommandContext(*(None,) * 4)
-    context.resource = ResourceContextDetails(*(None,) * 13)
-    context.resource.name = "MAAS"
-    context.resource.fullname = "Canonical MAAS"
-    context.resource.address = address
-    context.resource.family = "CS_CloudProvider"
-    context.reservation = ReservationContextDetails(*(None,) * 7)
-    context.reservation.reservation_id = '0cc17f8c-75ba-495f-aeb5-df5f0f9a0e97'
-    context.resource.attributes = {}
-
-    for attr, value in [("User", user),
-                        ("Password", password),
-                        ("Scheme", "http"),
-                        # ("Managed Allocation", "True"),
-                        ("Port", port)]:
-
-        context.resource.attributes["{}.{}".format(MaasDriver.SHELL_NAME, attr)] = value
-        context.connectivity = mock.MagicMock()
-        context.connectivity.server_address = "192.168.85.27"
-
-    dr = MaasDriver()
-    dr.initialize(context)
-
-    from maas.client import login
-
-    client = login(
-        f"http://192.168.26.24:5240/MAAS/",
-        username="admin",
-        password="admin",
-        insecure=True,
-    )
-
-    for res in dr.get_inventory(context).resources:
-        print(res.__dict__)
-
-    dr.Deploy(context, mock.MagicMock())

@@ -1,9 +1,9 @@
 tosca_definitions_version: tosca_simple_yaml_1_0
 
 metadata:
-  template_name: Maas
-  template_author: Anonymous
-  template_version: 0.1.0
+  template_name: MAAS
+  template_author: Quali
+  template_version: 1.0.0
   template_icon: shell-icon.png
 
 description: >
@@ -13,10 +13,8 @@ imports:
   - cloudshell_standard: cloudshell_cloud_provider_standard_1_0_0.yaml
 
 node_types:
-
-  vendor.resource.MAAS Machine:
+  vendor.resource.MAAS Machine 2nd Gen:
     derived_from: cloudshell.nodes.CustomDeploymentOption
-
     properties:
       Operation System:
         type: string
