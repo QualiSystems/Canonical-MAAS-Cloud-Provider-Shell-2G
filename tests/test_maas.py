@@ -1,13 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""
-Tests for `MaasDriver`
-"""
-
 import unittest
 
-from driver import MaasDriver
+from driver import MaasDriver  # noqa F401
 
 
 class TestMaasDriver(unittest.TestCase):
