@@ -8,17 +8,17 @@ from cloudshell.cp.core.request_actions import (
 )
 from cloudshell.cp.core.reservation_info import ReservationInfo
 from cloudshell.cp.maas.api.client import MaasAPIClient
+from cloudshell.cp.maas.flows.autoload import MaasAutoloadFlow
+from cloudshell.cp.maas.flows.cleanup_sandbox_infra import MaasCleanupSandboxInfraFlow
+from cloudshell.cp.maas.flows.delete import MaasDeleteFlow
+from cloudshell.cp.maas.flows.deploy import MaasDeployFlow
+from cloudshell.cp.maas.flows.power_mgmt import MaasPowerManagementFlow
+from cloudshell.cp.maas.flows.prepare_sandbox_infra import MaasPrepareSandboxInfraFlow
+from cloudshell.cp.maas.flows.refresh_ip import MaasRemoteRefreshIPFlow
+from cloudshell.cp.maas.flows.vm_details import MaasGetVMDetailsFlow
 from cloudshell.cp.maas.models.deploy_app import MaasMachineDeployApp
+from cloudshell.cp.maas.resource_config import MaasResourceConfig
 from cloudshell.cp.maas.utils.asyncio import event_loop_policy
-from cloudshell.cp.mass.flows.autoload import MaasAutoloadFlow
-from cloudshell.cp.mass.flows.cleanup_sandbox_infra import MaasCleanupSandboxInfraFlow
-from cloudshell.cp.mass.flows.delete import MaasDeleteFlow
-from cloudshell.cp.mass.flows.deploy import MaasDeployFlow
-from cloudshell.cp.mass.flows.power_mgmt import MaasPowerManagementFlow
-from cloudshell.cp.mass.flows.prepare_sandbox_infra import MaasPrepareSandboxInfraFlow
-from cloudshell.cp.mass.flows.refresh_ip import MaasRemoteRefreshIPFlow
-from cloudshell.cp.mass.flows.vm_details import MaasGetVMDetailsFlow
-from cloudshell.cp.mass.resource_config import MaasResourceConfig
 from cloudshell.shell.core.resource_driver_interface import ResourceDriverInterface
 from cloudshell.shell.core.session.cloudshell_session import CloudShellSessionContext
 from cloudshell.shell.core.session.logging_session import LoggingSessionContext

@@ -45,13 +45,10 @@ node_types:
           Port:
             default: 5240
             type: integer
-          Default Gateway:
+          Default Fabric:
             type: string
           Default Subnet:
             type: string
-          Managed Allocation:
-            type: boolean
-            default: true
           SSH Keypair Path:
             type: string
     properties:
@@ -72,13 +69,10 @@ node_types:
       Port:
         type: integer
         description: MAAS API Port
-      Default Gateway:
+      Default Fabric:
         type: string
       Default Subnet:
         type: string
-      Managed Allocation:
-        type: boolean
-        description: If set to True MAAS will take full control of DHCP and IP address management on subnet.
       SSH Keypair Path:
         type: string
         description: The path to the directory where the MAAS SSH private and public keys will be stored.
