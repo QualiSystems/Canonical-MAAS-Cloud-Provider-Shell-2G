@@ -13,12 +13,16 @@ imports:
   - cloudshell_standard: cloudshell_cloud_provider_standard_1_0_0.yaml
 
 node_types:
-  vendor.resource.MAAS Machine 2nd Gen:
+  vendor.resource.MAAS Machine 2G:
     derived_from: cloudshell.nodes.CustomDeploymentOption
     properties:
       Operation System:
         type: string
-        description: Operation System wich will be installed on the machine
+        description: "The operating system to be installed on the machine. For example: 'Ubuntu'"
+        tags: [user_input]
+      Distribution:
+        type: string
+        description: "The distribution version of the operating system to be installed on the machine. For example: 'Bionic'"
         tags: [user_input]
       CPU Cores:
         type: integer

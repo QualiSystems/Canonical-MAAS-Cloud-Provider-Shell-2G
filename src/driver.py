@@ -86,7 +86,7 @@ class MaasDriver(ResourceDriverInterface):
         """
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Deploy command...")
-            logger.debug(f"Request: {request}")
+            logger.info(f"Request: {request}")
             api = CloudShellSessionContext(context).get_api()
             resource_config = MaasResourceConfig.from_context(context=context, api=api)
             cancellation_manager = CancellationContextManager(cancellation_context)
@@ -370,7 +370,7 @@ class MaasDriver(ResourceDriverInterface):
         """
         with LoggingSessionContext(context) as logger:
             logger.info("Starting Prepare Sandbox Infra command...")
-            logger.debug(f"Request: {request}")
+            logger.info(f"Request: {request}")
             api = CloudShellSessionContext(context).get_api()
             resource_config = MaasResourceConfig.from_context(
                 context=context,
