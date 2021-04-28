@@ -29,6 +29,17 @@ class MaasDriver(ResourceDriverInterface):
         """Ctor must be without arguments, it is created with reflection at run time."""
         pass
 
+    def _get_maas_client(self, resource_config, logger):
+        return MaasAPIClient(
+                address=resource_config.address,
+                user=resource_config.api_user,
+                password=resource_config.api_password,
+                port=resource_config.api_port,
+                scheme=resource_config.api_scheme,
+                pool=resource_config.default_pool,
+                logger=logger
+            )
+
     def initialize(self, context):
         """Called every time a new instance of the driver is created.
 
@@ -57,14 +68,7 @@ class MaasDriver(ResourceDriverInterface):
             api = CloudShellSessionContext(context).get_api()
             resource_config = MaasResourceConfig.from_context(context=context, api=api)
 
-            maas_client = MaasAPIClient(
-                address=resource_config.address,
-                user=resource_config.api_user,
-                password=resource_config.api_password,
-                port=resource_config.api_port,
-                scheme=resource_config.api_scheme,
-                logger=logger,
-            )
+            maas_client = self._get_maas_client(resource_config, logger=logger)
 
             autoload_flow = MaasAutoloadFlow(
                 resource_config=resource_config, maas_client=maas_client, logger=logger
@@ -91,14 +95,7 @@ class MaasDriver(ResourceDriverInterface):
             resource_config = MaasResourceConfig.from_context(context=context, api=api)
             cancellation_manager = CancellationContextManager(cancellation_context)
 
-            maas_client = MaasAPIClient(
-                address=resource_config.address,
-                user=resource_config.api_user,
-                password=resource_config.api_password,
-                port=resource_config.api_port,
-                scheme=resource_config.api_scheme,
-                logger=logger,
-            )
+            maas_client = self._get_maas_client(resource_config, logger=logger)
 
             DeployVMRequestActions.register_deployment_path(MaasMachineDeployApp)
             request_actions = DeployVMRequestActions.from_request(
@@ -130,14 +127,7 @@ class MaasDriver(ResourceDriverInterface):
 
             resource_config = MaasResourceConfig.from_context(context=context, api=api)
 
-            maas_client = MaasAPIClient(
-                address=resource_config.address,
-                user=resource_config.api_user,
-                password=resource_config.api_password,
-                port=resource_config.api_port,
-                scheme=resource_config.api_scheme,
-                logger=logger,
-            )
+            maas_client = self._get_maas_client(resource_config, logger=logger)
 
             resource = context.remote_endpoints[0]
             deployed_vm_actions = DeployedVMActions.from_remote_resource(
@@ -167,14 +157,7 @@ class MaasDriver(ResourceDriverInterface):
 
             resource_config = MaasResourceConfig.from_context(context=context, api=api)
 
-            maas_client = MaasAPIClient(
-                address=resource_config.address,
-                user=resource_config.api_user,
-                password=resource_config.api_password,
-                port=resource_config.api_port,
-                scheme=resource_config.api_scheme,
-                logger=logger,
-            )
+            maas_client = self._get_maas_client(resource_config, logger=logger)
 
             resource = context.remote_endpoints[0]
             deployed_vm_actions = DeployedVMActions.from_remote_resource(
@@ -214,14 +197,7 @@ class MaasDriver(ResourceDriverInterface):
 
             cancellation_manager = CancellationContextManager(cancellation_context)
 
-            maas_client = MaasAPIClient(
-                address=resource_config.address,
-                user=resource_config.api_user,
-                password=resource_config.api_password,
-                port=resource_config.api_port,
-                scheme=resource_config.api_scheme,
-                logger=logger,
-            )
+            maas_client = self._get_maas_client(resource_config, logger=logger)
 
             resource = context.remote_endpoints[0]
             deployed_vm_actions = DeployedVMActions.from_remote_resource(
@@ -268,14 +244,7 @@ class MaasDriver(ResourceDriverInterface):
             )
             cancellation_manager = CancellationContextManager(cancellation_context)
 
-            maas_client = MaasAPIClient(
-                address=resource_config.address,
-                user=resource_config.api_user,
-                password=resource_config.api_password,
-                port=resource_config.api_port,
-                scheme=resource_config.api_scheme,
-                logger=logger,
-            )
+            maas_client = self._get_maas_client(resource_config, logger=logger)
 
             vm_details_flow = MaasGetVMDetailsFlow(
                 resource_config=resource_config,
@@ -306,14 +275,7 @@ class MaasDriver(ResourceDriverInterface):
                 resource=resource, cs_api=api
             )
 
-            maas_client = MaasAPIClient(
-                address=resource_config.address,
-                user=resource_config.api_user,
-                password=resource_config.api_password,
-                port=resource_config.api_port,
-                scheme=resource_config.api_scheme,
-                logger=logger,
-            )
+            maas_client = self._get_maas_client(resource_config, logger=logger)
 
             delete_flow = MaasDeleteFlow(
                 resource_config=resource_config,
@@ -381,24 +343,19 @@ class MaasDriver(ResourceDriverInterface):
             reservation_info = ReservationInfo.from_resource_context(context)
             cancellation_manager = CancellationContextManager(cancellation_context)
 
-            maas_client = MaasAPIClient(
-                address=resource_config.address,
-                user=resource_config.api_user,
-                password=resource_config.api_password,
-                port=resource_config.api_port,
-                scheme=resource_config.api_scheme,
-                logger=logger,
-            )
+            maas_client = self._get_maas_client(resource_config, logger=logger)
 
             prepare_sandbox_flow = MaasPrepareSandboxInfraFlow(
                 resource_config=resource_config,
                 reservation_info=reservation_info,
                 cancellation_manager=cancellation_manager,
                 maas_client=maas_client,
+                api=api,
                 logger=logger,
             )
-
-            return prepare_sandbox_flow.prepare(request_actions=request_actions)
+            result = prepare_sandbox_flow.prepare(request_actions=request_actions)
+            logger.info(result)
+            return result
 
     def CleanupSandboxInfra(self, context, request):
         """Cleans all entities (beside VMs) created for sandbox.
@@ -424,19 +381,13 @@ class MaasDriver(ResourceDriverInterface):
             request_actions = CleanupSandboxInfraRequestActions.from_request(request)
             reservation_info = ReservationInfo.from_resource_context(context)
 
-            maas_client = MaasAPIClient(
-                address=resource_config.address,
-                user=resource_config.api_user,
-                password=resource_config.api_password,
-                port=resource_config.api_port,
-                scheme=resource_config.api_scheme,
-                logger=logger,
-            )
+            maas_client = self._get_maas_client(resource_config, logger=logger)
 
             cleanup_sandbox_flow = MaasCleanupSandboxInfraFlow(
                 resource_config=resource_config,
                 reservation_info=reservation_info,
                 maas_client=maas_client,
+                api=api,
                 logger=logger,
             )
             return cleanup_sandbox_flow.cleanup(request_actions=request_actions)

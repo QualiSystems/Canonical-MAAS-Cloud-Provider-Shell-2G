@@ -49,6 +49,8 @@ node_types:
             type: string
           Default Subnet:
             type: string
+          Default Pool:
+            type: string
           SSH Keypair Path:
             type: string
     properties:
@@ -72,6 +74,8 @@ node_types:
       Default Fabric:
         type: string
       Default Subnet:
+        type: string
+      Default Pool:
         type: string
       SSH Keypair Path:
         type: string

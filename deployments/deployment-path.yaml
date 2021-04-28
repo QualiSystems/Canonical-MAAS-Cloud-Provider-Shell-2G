@@ -36,9 +36,18 @@ node_types:
         type: integer
         default: 1
         tags: [user_input]
+      Disks layout:
+        type: string
+        description: "Please use the following format to change storage layout:
+        disk name(sda):/mount-name(optional), size (in MB, GB, TB, or 'all'), filesystem format (ext4, swap, etc.)
+        sda:4GB,swap;/boot,512Mb,ext4;/var,250Gb;/,all,ext4|sdb:/,home,1TB;/data,all,ext4"
+        tags: [user_input]
       Storage GB:
         default: 512
         type: integer
+        tags: [user_input]
+      Hostname:
+        type: string
         tags: [user_input]
     artifacts:
       icon:
