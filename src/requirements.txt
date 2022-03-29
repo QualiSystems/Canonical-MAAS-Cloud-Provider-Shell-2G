@@ -4,4 +4,4 @@ python-libmaas==0.6.5
 cloudshell-shell-standards>=1.0,<2.0
 cloudshell-shell-flows>=1.0,<2
 cloudshell-automation-api>=9.2
-paramiko==2.7.1
+paramiko==2.10.1
